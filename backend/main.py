@@ -21,7 +21,7 @@ app = FastAPI()
 # Allow frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all for now
+    allow_origins=["*"],  # allow all (safe for now)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,7 +42,7 @@ def ask_ai(request: AskRequest):
     db = SessionLocal()
 
     try:
-        # 🔹 Load past messages from DB
+        # Load past messages from DB
         messages = db.query(Message).all()
 
         conversation_history = [
@@ -50,7 +50,7 @@ def ask_ai(request: AskRequest):
             for m in messages
         ]
 
-        # 🔹 Add current user message
+        # Add current user message
         conversation_history.append({
             "role": "user",
             "content": request.question
@@ -60,23 +60,47 @@ def ask_ai(request: AskRequest):
         db.add(Message(role="user", content=request.question))
         db.commit()
 
-        # 🧠 PLANNER
+        # Planner agent
         plan = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": "You are a planning agent."},
-                *conversation_history
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a planning agent. "
+                        "Read the full conversation carefully. "
+                        "Resolve references like 'it', 'they', or 'this' using prior context. "
+                        "Create a short structured plan for answering the latest user question."
+                    ),
+                },
+                *conversation_history,
             ],
         )
 
         plan_text = plan.choices[0].message.content
 
-        # ⚙️ EXECUTOR
+        # Executor agent
         execution = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": "You are an expert assistant. Follow the plan carefully."},
-                {"role": "user", "content": f"Plan:\n{plan_text}"}
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an AI operations copilot. "
+                        "Give direct, concrete, structured answers. "
+                        "Do not ask follow-up questions unless absolutely necessary. "
+                        "Do not give vague encouragement. "
+                        "Use the conversation context and the plan to answer the user's latest question well."
+                    ),
+                },
+                *conversation_history,
+                {
+                    "role": "user",
+                    "content": (
+                        f"Plan:\n{plan_text}\n\n"
+                        f"Now answer the latest user question directly."
+                    ),
+                },
             ],
         )
 
