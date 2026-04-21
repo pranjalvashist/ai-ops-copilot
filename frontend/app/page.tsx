@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const res = await fetch("http://localhost:8000/history");
+        const res = await fetch("https://ai-ops-copilot-ty3k.onrender.com/history");
         const data = await res.json();
         setMessages(data);
       } catch (error) {
@@ -24,53 +24,65 @@ export default function Home() {
 
   // 🧠 Ask AI
   const askAI = async () => {
-    if (!question.trim()) return;
+  if (!question.trim()) return;
 
-    const newMessages = [
-      ...messages,
-      { role: "user", content: question },
-    ];
+  const newMessages = [
+    ...messages,
+    { role: "user", content: question },
+  ];
 
-    setMessages(newMessages);
-    setQuestion("");
-    setLoading(true);
+  setMessages(newMessages);
+  setQuestion("");
+  setLoading(true);
 
-    try {
-      const res = await fetch("http://localhost:8000/ask", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question }),
-      });
+  try {
+    // ⏳ Allow slow backend (Render cold start)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 40000); // 40 sec
 
-      const data = await res.json();
+    const res = await fetch("https://ai-ops-copilot-ty3k.onrender.com/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question }),
+      signal: controller.signal,
+    });
 
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: data.answer || "No response received.",
-          plan: data.plan,
-        },
-      ]);
-    } catch (error) {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: "⚠️ Error connecting to backend.",
-        },
-      ]);
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      throw new Error("Server waking up...");
     }
 
-    setLoading(false);
-  };
+    const data = await res.json();
+
+    setMessages([
+      ...newMessages,
+      {
+        role: "assistant",
+        content: data.answer || "No response received.",
+        plan: data.plan,
+      },
+    ]);
+  } catch (error) {
+    setMessages([
+      ...newMessages,
+      {
+        role: "assistant",
+        content:
+          "⏳ Waking up server... try again in a few seconds.",
+      },
+    ]);
+  }
+
+  setLoading(false);
+};
 
   // 🧹 Clear Chat
   const clearChat = async () => {
     try {
-      await fetch("http://localhost:8000/clear", {
+      await fetch("https://ai-ops-copilot-ty3k.onrender.com/clear", {
         method: "DELETE",
       });
 
