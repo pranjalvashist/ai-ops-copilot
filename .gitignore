@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+node_modules/
+.env
+chat.db
+frontend/.next/
+backend/.venv/
