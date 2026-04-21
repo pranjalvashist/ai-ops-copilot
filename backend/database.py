@@ -1,16 +1,17 @@
 from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "sqlite:///C:/Users/vashi/ai-ops-copilot/backend/chat.db"
-
+# ✅ Correct SQLite path (works on Render)
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    "sqlite:///./chat.db",
+    connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
+# ✅ Message table
 class Message(Base):
     __tablename__ = "messages"
 
@@ -18,4 +19,5 @@ class Message(Base):
     role = Column(String)
     content = Column(String)
 
+# ✅ Auto-create tables on startup
 Base.metadata.create_all(bind=engine)
